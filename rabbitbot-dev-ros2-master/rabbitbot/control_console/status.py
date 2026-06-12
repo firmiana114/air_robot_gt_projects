@@ -322,12 +322,43 @@ def is_port_open(host: str, port: int, timeout: float = 0.25) -> bool:
         return False
 
 
-def detect_main_loop_running() -> str:
+def _detect_main_loop_from_systemd(service_name: str = "rabbitbot-loop.service") -> str | None:
+    try:
+        result = subprocess.run(
+            ["systemctl", "is-active", service_name],
+            capture_output=True,
+            text=True,
+            timeout=1,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        logger.debug("systemd 主循环状态读取失败：service=%s, error=%s", service_name, exc)
+        return None
+    state = result.stdout.strip()
+    if state == "active":
+        logger.debug("主循环 systemd 状态为 active：service=%s", service_name)
+        return "systemd_running"
+    if state in {"inactive", "failed", "activating", "deactivating"}:
+        logger.debug("主循环 systemd 状态非 active：service=%s, state=%s", service_name, state)
+        return None
+    if result.returncode != 0:
+        logger.debug(
+            "主循环 systemd 状态不可用：service=%s, code=%s, stdout=%s, stderr=%s",
+            service_name,
+            result.returncode,
+            state,
+            result.stderr.strip()[-300:],
+        )
+    return None
+
+
+def detect_main_loop_running(service_name: str = "rabbitbot-loop.service") -> str:
     proc_root = Path("/proc")
     try:
         proc_dirs: Iterable[Path] = proc_root.iterdir()
-    except OSError:
-        return "unknown"
+    except OSError as exc:
+        logger.debug("读取 /proc 失败，回退 systemd 主循环检测：error=%s", exc)
+        return _detect_main_loop_from_systemd(service_name) or "unknown"
 
     needles = ("start_nav_bridge_workflow_loop.sh", "start_loop_entry.sh")
     for proc_dir in proc_dirs:
@@ -340,4 +371,4 @@ def detect_main_loop_running() -> str:
             continue
         if any(needle in cmdline for needle in needles):
             return "running"
-    return "not_detected"
+    return _detect_main_loop_from_systemd(service_name) or "not_detected"

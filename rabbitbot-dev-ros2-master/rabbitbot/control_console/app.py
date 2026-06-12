@@ -134,13 +134,21 @@ function showError(message){
   setText('overall','读取失败');
   setText('message',message);
 }
+function coreServicesReady(data){
+  return data&&data.nav_bridge&&data.nav_bridge.ready&&data.workflow&&data.workflow.ready&&data.pose&&data.pose.localized;
+}
 function servicesReady(data){
-  return data&&data.main_loop==='running'&&data.nav_bridge&&data.nav_bridge.ready&&data.workflow&&data.workflow.ready;
+  return coreServicesReady(data)&&(data.main_loop==='running'||data.main_loop==='systemd_running');
+}
+function displayOverallStatus(data){
+  if(servicesReady(data)){return '全部就绪';}
+  if(coreServicesReady(data)){return '基础服务就绪';}
+  return data.nav_bridge&&data.nav_bridge.ready?'在线':'导航未就绪';
 }
 function renderStatus(data){
   setText('map','地图：'+data.map_path);
   if(!mapPathTouched&&data.map_path){document.getElementById('mapPathInput').value=data.map_path;}
-  setText('overall',servicesReady(data)?'全部就绪':(data.nav_bridge.ready?'在线':'导航未就绪'));
+  setText('overall',displayOverallStatus(data));
   setText('mainLoop',data.main_loop);
   setText('navBridge',(data.nav_bridge&&data.nav_bridge.message)||(data.nav_bridge.ready?'28180 就绪':'未就绪'));
   setText('workflow',data.workflow.status||'unknown');
@@ -172,7 +180,11 @@ function waitForServicesReady(button,startedAt){
         if(logsVisible){refreshLogs();}
         return;
       }
-      setText('message','正在等待所有服务加载完成...');
+      if(coreServicesReady(data)){
+        setText('message','导航、定位和 workflow 已就绪，主循环进程检测仍在同步；若页面可操作可继续使用。');
+      }else{
+        setText('message','正在等待所有服务加载完成...');
+      }
     }
     if(Date.now()-startedAt>90000){
       setText('message','服务仍未全部就绪，请查看状态或打开日志排查');
@@ -324,7 +336,7 @@ def create_app(config: ConsoleConfig | None = None) -> FastAPI:
         return {
             "ok": True,
             "map_path": current_map_path,
-            "main_loop": detect_main_loop_running(),
+            "main_loop": detect_main_loop_running(config.loop_service_name),
             "nav_bridge": nav_bridge,
             "workflow": workflow.to_dict(),
             "pose": pose.to_dict(),

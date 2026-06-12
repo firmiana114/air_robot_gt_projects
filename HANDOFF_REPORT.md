@@ -824,3 +824,47 @@ ShuHao-orin 的 `logs/unified_runtime/rabbitbot_tts.log` 显示 TTS 服务启动
 - 如果继续使用相同 tag `20260611`，必须通过 image id 确认 ShuHao 侧已经覆盖为 `sha256:9c7cb9f9...`，不能只看 tag 名。
 - 本轮新增/调整日志点保持不变：启动脚本记录 portable 依赖卷注入数量，自检报告 Unitree TTS 依赖策略。
 - 生成时间：2026-06-11 18:15:00
+
+
+## 本轮补充：全新 Orin 模拟后控制台前端 ready 误报修复
+
+### 背景和目标
+
+Aaron 在 ShuHao-orin 完成“全新 Orin”模拟部署后，控制台前端仍显示“服务仍未全部就绪，请查看状态或打开日志排查”。本轮目标是确认服务真实状态，并修复前端与状态接口之间的 ready 判定不一致。
+
+### 当前状态
+
+已完成：
+
+- 已确认 ShuHao 的 `/api/status` 返回 `nav_bridge.ready=true`、`workflow.ready=true`、`workflow.status=waiting_for_go`、`pose.localized=true`，机器人网络 `eno1` 已 `UP` 且 `Link detected: yes`。
+- 已确认 `rabbitbot-loop.service` 和 `rabbitbot-control-console.service` 均为 `active/running`，且 `NRestarts=0`。
+- 已确认导航日志持续输出 `[Pose]`，workflow 已成功预启动并停在 go 闸门。
+- 已定位前端误报根因：前端 `servicesReady()` 硬要求 `main_loop === "running"`；而状态接口的主循环检测只扫描 `/proc` 命令行，导览释放或进程树形态变化后可能返回 `not_detected`，导致前端误判未全部就绪。
+- 已修复控制台后端：`detect_main_loop_running()` 在 `/proc` 未检出脚本进程时回退读取 `systemctl is-active rabbitbot-loop.service`。
+- 已修复控制台前端：ready 判定拆分为核心服务就绪和主循环检测就绪；导航、定位、workflow 均就绪但主循环检测短暂漂移时显示“基础服务就绪”，不再误报泛化失败。
+
+未完成：
+
+- 本轮修复尚需同步到 ShuHao 后重启 `rabbitbot-control-console.service` 才能让前端页面生效。
+- 本轮未改动 portable 镜像；该问题属于控制台状态判定，不需要重建 core/nav 镜像。
+
+### 已验证的事实
+
+- ShuHao 当前服务实际可用，前端提示与后端状态不一致是控制台显示层问题。
+- `main_loop=not_detected` 不能单独作为服务失败依据；当 systemd active 且 nav/workflow/pose 都 ready 时，应认为基础导览链路可用。
+- 地图 `/home/unitree/test9.pcd` 在 Orin 本地不可见仍是预期状态；定位成功说明机器人侧地图可用。
+
+### 阻塞问题
+
+无当前代码层面的阻塞。需要 Aaron 将本提交同步到 ShuHao，或在 ShuHao 直接拉取本分支后重启控制台服务验证。
+
+### 建议的下一步
+
+- 在 ShuHao 执行 `git pull` 后重启 `rabbitbot-control-console.service`。
+- 刷新浏览器并确认顶部状态不再显示“服务仍未全部就绪”。
+- 若再次出现未就绪，优先同时查看 `/api/status` 中 `main_loop`、`nav_bridge.ready`、`workflow.ready`、`pose.localized` 四个字段，不要只看顶部文案。
+
+### 注意事项
+
+- 本轮新增日志点：后端主循环检测在 systemd 回退路径记录 DEBUG 日志，包括读取失败、非 active 状态和 active 状态来源，便于后续区分 `/proc` 检测漂移与服务真实失败。
+- 生成时间：2026-06-12 10:25:00
