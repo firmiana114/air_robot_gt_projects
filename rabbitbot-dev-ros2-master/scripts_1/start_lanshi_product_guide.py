@@ -21,14 +21,42 @@ from typing import Any
 
 
 INTRO_SENTENCES = [
-    "本平台由兰石爱特互联科技联合学院、兰石雅生活智慧服务打造，融合物联网、数字孪生、云计算、AI 等技术。",
-    "平台构建孪生校园、能源管理、设备管理、安环管理四大核心模块，推动校园管理从被动维护转向主动防控。",
-    "平台实现地下管网三维可视化、宿舍水电智能管控、能耗实时监测分析、无人机智能巡检、智慧绿化灌溉等功能。",
-    "它助力节能降耗、安全防控与高效运维，同时赋能教学实践，促进跨学科融合。",
-    "平台还助力学院获评节水型高校、绿色学校，打造低碳、智能、高效的现代化校园。",
+    "绿色低碳智慧化校园管理服务平台",
+    "由兰石集团爱特互联科技有限公司联合兰州现代职业学院及兰石雅生活物业公司共同打造的以工业互联网与智慧校园为核心驱动力，基于“数字孪生”、“设备管理”、“能源管理”、“安环管理”的绿色低碳智慧化校园管理服务平台，",
+    "系统融合物联网、数字孪生、云计算、数据分析及人工智能等前沿技术，推动校园管理服务实现从“被动维护”到“主动防控”的战略变革。",
+    "兰州现代职业学院和兰州兰石集团校企共建智慧校园体系下最具特色平安校园、绿色校园、科技校园。",
+    "核心功能模块包含：",
+    "一是数字孪生：虚实映射，实时感知。",
+    "通过高精度测绘与三维建模，将校园地下给水管网以直观的三维模型呈现，每一根管道的位置、走向、管径等信息都清晰可查，仿佛为校园地下世界打开了一扇“透明之窗”。",
+    "部署在管网二级节点的水泵房传感器和三级节点的智能水表，可实时联动采集流量、压力、水位等数据，并同步传输至平台，使管网状态实时映射。",
+    "打破传统依赖人工巡检和经验判断的模式，管理人员可远程监控管网运行状况，提前发现潜在隐患，实现从被动抢修到主动预防的转变，大幅降低管网故障发生率，减少维修成本和因停水、停电等突发情况对校园生活的影响。",
+    "二是设备管理：数智统管，高效运维。",
+    "设备管理系统可覆盖校园内各类物业设备管理，如供电、供水、喷淋、清扫车等关键设备。",
+    "在供电设备场景中，系统能定制化实现宿舍楼宇及单一用户用电智能四时段控制，“人走断闸，人在合闸”为宿舍用电安全保驾护航。",
+    "供水设备方面，能精准掌握校园各区域水泵房设备运行状态、水箱水位、管廊最低点液位，保障校园用水稳定。",
+    "其中，牡丹园智慧喷淋系统内设的土壤温湿度传感器，如同敏锐的“触角”，能实时精准感知土壤状况。",
+    "一旦土壤湿度低于设定阈值，系统即刻启动喷淋；",
+    "若湿度达标，则自动停止，避免过度灌溉。",
+    "校园清扫车车辆监控系统，可实时定位车辆、追踪行驶轨迹，监测作业进度与总工作时长，助力管理者科学调度，提升校园清洁效率。",
+    "同时，系统通过公众号+PC端实现“报修、接单、维修、检修、完工”全流程，形成服务闭环。",
+    "三是能源管理：绿色低碳，降本增效。",
+    "以“智控-分析-预警”三位一体模式，推动绿色低碳服务迈向精细化、长效化。",
+    "智能调控降本增效，通过智能用电控制和节水监控形成“水电双控”节能矩阵，提升水电利用效率；",
+    "数据赋能精细管理，依托能耗数据采集与数据分析，系统自动生成用能报告，为能源管理决策提供数据支撑；",
+    "预警机制闭环管控，系统支持线上充值、余额提醒及欠费停供功能有效避免资源浪费提升费用收缴效率，助力校园节能管理与财务规范化。",
+    "四是安环管理：智守安全，数创未来。",
+    "安环管理系统，让风险可量化，让隐患可预见。",
+    "部署无人机智能巡检平台，自主规划飞行方案实现高清晰度全面巡检，配合AI算法自动识别服务人员到岗情况、人工湖面异物、路面清扫状态和烟火预警等事件。",
+    "雨水收集系统，可储存雨水，用于校园绿化灌溉、道路冲洗、景观补水等非饮用水场景，直接减少自来水使用量，降低用水成本。",
+    "有效减少地表径流量，降低暴雨期间校园排水系统压力，缓解内涝风险。",
+    "绿色低碳智慧化校园管理服务平台让科技更懂人心，让数据更有温度。",
 ]
 
 DEFAULT_ACTIONS = ["face_wave", "right_hand_up", "", "right_hand_up", "high_wave"]
+DEFAULT_TARGET_ROUND_SECONDS = 315.0
+DEFAULT_ESTIMATED_CHARS_PER_SECOND = 5.0
+DEFAULT_ESTIMATED_SENTENCE_OVERHEAD_SECONDS = 0.8
+DEFAULT_ESTIMATED_SENTENCE_MAX_SECONDS = 30.0
 
 
 def timestamp() -> str:
@@ -50,12 +78,23 @@ def env_float(name: str, default: float) -> float:
         return default
 
 
+def env_bool(name: str, default: bool) -> bool:
+    raw_value = os.getenv(name, "")
+    if not raw_value:
+        return default
+    return raw_value.strip().lower() in {"1", "true", "yes", "on"}
+
+
 def env_list(name: str, default: list[str]) -> list[str]:
     raw_value = os.getenv(name, "")
     if not raw_value:
         return default
     items = [item.strip() for item in raw_value.split(",")]
     return items or default
+
+
+def visible_char_count(text: str) -> int:
+    return len("".join(ch for ch in text if not ch.isspace()))
 
 
 class LanshiGuide:
@@ -68,7 +107,52 @@ class LanshiGuide:
         self.tts_timeout = env_float("RABBITBOT_LANSHI_TTS_TIMEOUT_SECONDS", 60.0)
         self.arm_timeout = env_float("RABBITBOT_LANSHI_ARM_TIMEOUT_SECONDS", 12.0)
         self.actions = env_list("RABBITBOT_LANSHI_ACTIONS", DEFAULT_ACTIONS)
+        self.target_round_seconds = env_float("RABBITBOT_LANSHI_TARGET_ROUND_SECONDS", DEFAULT_TARGET_ROUND_SECONDS)
+        self.pacing_enabled = env_bool("RABBITBOT_LANSHI_PACING_ENABLED", True)
+        self.estimated_chars_per_second = max(
+            0.1,
+            env_float("RABBITBOT_LANSHI_ESTIMATED_CHARS_PER_SECOND", DEFAULT_ESTIMATED_CHARS_PER_SECOND),
+        )
+        self.estimated_sentence_overhead = max(
+            0.0,
+            env_float("RABBITBOT_LANSHI_ESTIMATED_SENTENCE_OVERHEAD_SECONDS", DEFAULT_ESTIMATED_SENTENCE_OVERHEAD_SECONDS),
+        )
+        self.estimated_sentence_max = max(
+            1.0,
+            env_float("RABBITBOT_LANSHI_ESTIMATED_SENTENCE_MAX_SECONDS", DEFAULT_ESTIMATED_SENTENCE_MAX_SECONDS),
+        )
         self.stop_requested = False
+
+    def estimate_sentence_seconds(self, sentence: str) -> float:
+        estimate = visible_char_count(sentence) / self.estimated_chars_per_second + self.estimated_sentence_overhead
+        return max(1.0, min(self.estimated_sentence_max, estimate))
+
+    def round_timing_plan(self) -> dict[str, Any]:
+        estimates = [self.estimate_sentence_seconds(sentence) for sentence in INTRO_SENTENCES]
+        gap_count = max(0, len(INTRO_SENTENCES) - 1)
+        base_gap = max(0.0, self.sentence_delay)
+        estimated_speech_seconds = sum(estimates)
+        base_gap_seconds = base_gap * gap_count
+        extra_gap_seconds = 0.0
+        if self.pacing_enabled and gap_count > 0:
+            extra_gap_seconds = max(0.0, self.target_round_seconds - estimated_speech_seconds - base_gap_seconds)
+        planned_gap = base_gap + (extra_gap_seconds / gap_count if gap_count else 0.0)
+        planned_total = estimated_speech_seconds + planned_gap * gap_count
+        if self.pacing_enabled and planned_total > self.target_round_seconds + 0.001:
+            log(
+                "WARN",
+                "兰石讲解词估算时长已超过目标时长："
+                f"target={self.target_round_seconds:.1f}s, estimated={planned_total:.1f}s，无法通过句间补齐缩短播放",
+            )
+        return {
+            "estimates": estimates,
+            "estimated_speech_seconds": estimated_speech_seconds,
+            "base_gap_seconds": base_gap_seconds,
+            "extra_gap_seconds": extra_gap_seconds,
+            "planned_gap": planned_gap,
+            "planned_total": planned_total,
+            "visible_chars": sum(visible_char_count(sentence) for sentence in INTRO_SENTENCES),
+        }
 
     def request_stop(self, signum: int, _frame: Any) -> None:
         self.stop_requested = True
@@ -96,8 +180,9 @@ class LanshiGuide:
         task_json = json.dumps(payload, ensure_ascii=False)
         return self.post_form(self.tts_exec_url, {"task": task_json}, timeout or self.tts_timeout)
 
-    def speak_sentence(self, sentence: str, index: int, total: int) -> None:
-        log("INFO", f"提交兰石逐句 TTS：sentence={index}/{total}, chars={len(sentence)}")
+    def speak_sentence(self, sentence: str, index: int, total: int) -> float:
+        start_time = time.perf_counter()
+        log("INFO", f"提交兰石逐句 TTS：sentence={index}/{total}, chars={visible_char_count(sentence)}")
         response = self.tts_exec(
             {"task": "text_to_speech", "lang": "zh", "text": sentence, "timeout": int(self.tts_timeout)},
         )
@@ -105,7 +190,9 @@ class LanshiGuide:
         wait_response = self.tts_exec(
             {"task": "wait_speech", "lang": "", "text": "", "timeout": int(self.tts_timeout)},
         )
-        log("INFO", f"兰石 TTS 播放完成：sentence={index}/{total}, response={wait_response.strip()[:120]}")
+        elapsed = time.perf_counter() - start_time
+        log("INFO", f"兰石 TTS 播放完成：sentence={index}/{total}, elapsed={elapsed:.2f}s, response={wait_response.strip()[:120]}")
+        return elapsed
 
     def trigger_action(self, action_name: str, sentence_index: int) -> None:
         if not action_name:
@@ -119,7 +206,17 @@ class LanshiGuide:
 
     def play_once(self, round_index: int) -> None:
         total = len(INTRO_SENTENCES)
-        log("INFO", f"开始兰石产品介绍轮次：round={round_index}, sentence_count={total}")
+        timing_plan = self.round_timing_plan()
+        round_start = time.perf_counter()
+        log(
+            "INFO",
+            "开始兰石产品介绍轮次："
+            f"round={round_index}, sentence_count={total}, visible_chars={timing_plan['visible_chars']}, "
+            f"target={self.target_round_seconds:.1f}s, estimated_speech={timing_plan['estimated_speech_seconds']:.1f}s, "
+            f"base_gap={timing_plan['base_gap_seconds']:.1f}s, extra_gap={timing_plan['extra_gap_seconds']:.1f}s, "
+            f"planned_gap={timing_plan['planned_gap']:.2f}s, planned_total={timing_plan['planned_total']:.1f}s, "
+            f"pacing={self.pacing_enabled}",
+        )
         for index, sentence in enumerate(INTRO_SENTENCES, start=1):
             if self.stop_requested:
                 break
@@ -131,16 +228,36 @@ class LanshiGuide:
             self.speak_sentence(sentence, index, total)
             if action_thread is not None:
                 action_thread.join(timeout=max(self.arm_timeout, 1.0))
-            if self.sentence_delay > 0 and index < total and not self.stop_requested:
-                time.sleep(self.sentence_delay)
-        log("INFO", f"兰石产品介绍轮次结束：round={round_index}")
+            if index < total and not self.stop_requested:
+                if self.pacing_enabled:
+                    planned_elapsed_after_gap = sum(timing_plan["estimates"][:index]) + timing_plan["planned_gap"] * index
+                    actual_elapsed = time.perf_counter() - round_start
+                    wait_seconds = max(0.0, planned_elapsed_after_gap - actual_elapsed)
+                    if wait_seconds > 0:
+                        log(
+                            "DEBUG",
+                            "兰石讲解词句间节奏补齐："
+                            f"round={round_index}, sentence={index}/{total}, wait={wait_seconds:.2f}s, "
+                            f"planned_elapsed={planned_elapsed_after_gap:.2f}s, actual_elapsed={actual_elapsed:.2f}s",
+                        )
+                        time.sleep(wait_seconds)
+                elif self.sentence_delay > 0:
+                    time.sleep(self.sentence_delay)
+        elapsed_total = time.perf_counter() - round_start
+        log(
+            "INFO",
+            "兰石产品介绍轮次结束："
+            f"round={round_index}, elapsed={elapsed_total:.2f}s, target={self.target_round_seconds:.1f}s, "
+            f"drift={elapsed_total - self.target_round_seconds:.2f}s",
+        )
 
     def run_forever(self) -> int:
         log(
             "INFO",
             "兰石原地导览启动："
             f"tts_url={self.tts_exec_url}, arm_url={self.robot_arm_url}, "
-            f"repeat_delay={self.repeat_delay}s, actions={self.actions}",
+            f"repeat_delay={self.repeat_delay}s, target_round={self.target_round_seconds}s, "
+            f"pacing={self.pacing_enabled}, actions={self.actions}",
         )
         round_index = 1
         while not self.stop_requested:
