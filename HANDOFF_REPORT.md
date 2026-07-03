@@ -29,6 +29,14 @@ RabbitBot 自主运行包，部署在 ShuHao-orin。Git 根 `/mnt/disk1/gt/air_r
 
 ## 当前状态
 
+本轮更新（2026-07-03，兰石企业原地产品导览分支）：
+- 当前分支：`lanshi`，基于 `cb97945 调整TTS音频设备选择顺序为auto` 创建，专门服务兰石企业导览任务。
+- 任务定位：机器人站在原地循环介绍兰石平台产品，不进行导航移动，不启动 VLM、Embedding、STT、Memory；只保留 TTS、28180 动作桥接和 workflow 宿主。
+- 已新增：`rabbitbot-dev-ros2-master/scripts_1/start_lanshi_product_guide.py`，直接调用 TTS `/exec`，按句执行 `text_to_speech` + `wait_speech`，每轮简介词播完后等待 5 秒继续下一轮；动作通过 28180 `/do_arm_async` 穿插触发，动作失败仅记录 WARNING，不中断循环介绍。
+- 已调整：`start_loop_entry.sh` 在本分支默认进入 `RABBITBOT_LANSHI_GUIDE_MODE=1`，强制使用 portable compose 路径，关闭 VLM/Embedding/STT/模型自动下载和语音启动等待；`start_nav_bridge_workflow_loop.sh` 在兰石模式下会停止 `neo4j`、`rabbitbot-vlm`、`rabbitbot-memory`，只拉起 `rabbitbot-audio` 与 `rabbitbot-workflow` 基础容器，导航桥接只等待 28180 动作接口，不等待导航核心 Pose/Ready。
+- 已调整：`scripts_1/unified_runtime/start_role_container.sh` 的 audio 角色不再强制启动 STT，改由 `RABBITBOT_UNIFIED_START_STT` 控制；`docker/portable/docker-compose.decoupled.yaml` 的 audio healthcheck 改查 TTS 28185，workflow 宿主不再强依赖 memory，支持兰石 TTS-only 运行。
+- 待验证：尚未实际启动 `rabbitbot-loop.service` 跑兰石循环，需现场确认 28180 动作服务和 TTS 声音输出正常；如机器人动作名称与现场动作库不匹配，可通过 `RABBITBOT_LANSHI_ACTIONS` 覆盖动作序列。
+
 本轮更新（2026-07-02，TTS 本地输出优先选择非 HDA 外接设备）：
 - 背景：Aaron 询问 local 模式是否优先选择设备名非 `NVIDIA Jetson AGX Orin HDA` 的输出；原逻辑在未设置 `TTS_DEVICE_NAME` 时会优先非内置设备，但 `auto` 回退默认设置 `TTS_DEVICE_NAME=BT67` 后，BT67 不存在时会直接进入内置声卡回退，可能跳过其它外接输出。
 - 已完成：`scripts/start_tts_app.bash` 的 sounddevice 扫描逻辑改为三档优先级：显式 `TTS_DEVICE_NAME` 匹配 > 非内置且非 HDA 的外接输出 > 允许内置声卡时的内置回退。

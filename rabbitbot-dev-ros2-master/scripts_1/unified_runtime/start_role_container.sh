@@ -40,11 +40,9 @@ case "${ROLE}" in
         start_vlm_and_embedding
         ;;
     audio)
-        # 本容器负责 TTS 与 STT。
-        log_info "角色 audio：启动 TTS(28185) 与 STT(28184)"
+        # 本容器负责音频服务；兰石原地导览只需要 TTS，可通过 RABBITBOT_UNIFIED_START_STT=0 跳过 STT。
+        log_info "角色 audio：启动 TTS(28185)，STT=${RABBITBOT_UNIFIED_START_STT:-0}"
         start_tts
-        export RABBITBOT_UNIFIED_START_STT=1
-        RABBITBOT_UNIFIED_START_STT=1
         start_stt
         ;;
     memory)

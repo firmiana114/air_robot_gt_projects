@@ -91,6 +91,7 @@ WORKFLOW_STATUS_POLL_SECONDS="${RABBITBOT_NAV_WORKFLOW_STATUS_POLL_SECONDS:-0.2}
 WAIT_DEFAULT_SECONDS="${WAIT_DEFAULT_SECONDS:-420}"
 WAIT_VLM_SECONDS="${WAIT_VLM_SECONDS:-600}"
 RABBITBOT_NAV_WORKFLOW_NO_ROBOT="${RABBITBOT_NAV_WORKFLOW_NO_ROBOT:-0}"
+RABBITBOT_LANSHI_GUIDE_MODE="${RABBITBOT_LANSHI_GUIDE_MODE:-0}"
 RABBITBOT_WORKFLOW_NON_INTEGRATION="${RABBITBOT_WORKFLOW_NON_INTEGRATION:-0}"
 if [ "${RABBITBOT_NAV_WORKFLOW_NO_ROBOT}" = "1" ]; then
     RABBITBOT_WORKFLOW_NON_INTEGRATION="1"
@@ -468,7 +469,7 @@ nav_bridge_health_ok() {
             problems+=("28180状态接口无响应")
         fi
     fi
-    if ! nav_core_log_healthy; then
+    if [ "${RABBITBOT_LANSHI_GUIDE_MODE}" != "1" ] && ! nav_core_log_healthy; then
         problems+=("导航核心未就绪")
     fi
     if [ "${#problems[@]}" -gt 0 ]; then
@@ -483,17 +484,19 @@ base_services_health_ok() {
     if ! container_running; then
         problems+=("统一容器未运行")
     fi
-    if ! port_open 7687; then
-        problems+=("Neo4j(7687)")
-    fi
     if ! http_ok http://127.0.0.1:28185/docs; then
         problems+=("TTS(28185)")
     fi
     if [ "${RABBITBOT_UNIFIED_START_STT}" = "1" ] && ! http_ok http://127.0.0.1:28184/docs; then
         problems+=("STT(28184)")
     fi
-    if ! http_ok http://127.0.0.1:28182/docs; then
-        problems+=("Memory(28182)")
+    if [ "${RABBITBOT_LANSHI_GUIDE_MODE}" != "1" ]; then
+        if ! port_open 7687; then
+            problems+=("Neo4j(7687)")
+        fi
+        if ! http_ok http://127.0.0.1:28182/docs; then
+            problems+=("Memory(28182)")
+        fi
     fi
     if [ "${#problems[@]}" -gt 0 ]; then
         log_warn "统一基础服务健康检查失败：$(IFS='；'; echo "${problems[*]}")"
@@ -590,7 +593,7 @@ PY
 }
 
 workflow_running() {
-    docker exec "${CONTAINER_NAME}" bash -lc 'pgrep -f "[e]xamples/run_kuavo_agno.py" >/dev/null || pgrep -f "[s]cripts/run_kuavo_agno_workflow.py" >/dev/null || pgrep -f "[s]cripts/start_kuavo_agno_workflow.bash" >/dev/null' >/dev/null 2>&1
+    docker exec "${CONTAINER_NAME}" bash -lc 'pgrep -f "[e]xamples/run_kuavo_agno.py" >/dev/null || pgrep -f "[s]cripts/run_kuavo_agno_workflow.py" >/dev/null || pgrep -f "[s]cripts/start_kuavo_agno_workflow.bash" >/dev/null || pgrep -f "[s]cripts_1/start_lanshi_product_guide.py" >/dev/null' >/dev/null 2>&1
 }
 
 current_workflow_process_active() {
@@ -659,7 +662,11 @@ prepare_runtime() {
             require_path "${WS_SETUP}"
         fi
     fi
-    require_path "${PROJECT_DIR}/scripts_1/start_unified_integration_workflow.sh"
+    if [ "${RABBITBOT_LANSHI_GUIDE_MODE}" = "1" ]; then
+        require_path "${PROJECT_DIR}/scripts_1/start_lanshi_product_guide.py"
+    else
+        require_path "${PROJECT_DIR}/scripts_1/start_unified_integration_workflow.sh"
+    fi
     rm -f "${COMMAND_FILE}"
     cleanup_stale_workflow_control_files
     log_info "控制命令文件：${COMMAND_FILE}"
@@ -755,7 +762,11 @@ start_nav_bridge() {
     nav_group_pid=$!
     log_info "导航桥接进程组已启动：pgid=${nav_group_pid}"
     wait_port 28180 60
-    wait_nav_core_ready
+    if [ "${RABBITBOT_LANSHI_GUIDE_MODE}" = "1" ]; then
+        log_info "兰石原地导览不执行导航移动，跳过导航核心 Pose/Ready 等待，仅保留 28180 动作桥接。"
+    else
+        wait_nav_core_ready
+    fi
 }
 
 restart_nav_bridge() {
@@ -816,8 +827,16 @@ ensure_decoupled_services() {
     # 仅拉起基础服务与 workflow 宿主；nav 在无机器人模式下被 main 跳过，这里不动 navbridge。
     local compose_dir
     compose_dir="$(dirname "${RABBITBOT_DECOUPLED_COMPOSE_FILE}")"
-    ( cd "${compose_dir}" && docker compose -f "${RABBITBOT_DECOUPLED_COMPOSE_FILE}" up -d neo4j rabbitbot-vlm rabbitbot-audio rabbitbot-memory rabbitbot-workflow )
-    log_info "解耦基础服务已就绪：neo4j(7687)/vlm(8000+8005)/audio(28185+28184)/memory(28182)/workflow 宿主(${CONTAINER_NAME})"
+    local compose_services=(neo4j rabbitbot-vlm rabbitbot-audio rabbitbot-memory rabbitbot-workflow)
+    local compose_up_args=(up -d)
+    if [ "${RABBITBOT_LANSHI_GUIDE_MODE}" = "1" ]; then
+        compose_services=(rabbitbot-audio rabbitbot-workflow)
+        compose_up_args=(up -d --force-recreate)
+        log_info "兰石原地导览模式：停止 VLM/Embedding/STT/Memory 相关容器，仅拉起 audio(TTS-only) 与 workflow 宿主。"
+        ( cd "${compose_dir}" && docker compose -f "${RABBITBOT_DECOUPLED_COMPOSE_FILE}" stop neo4j rabbitbot-vlm rabbitbot-memory >/dev/null 2>&1 || true )
+    fi
+    ( cd "${compose_dir}" && RABBITBOT_UNIFIED_START_STT="${RABBITBOT_UNIFIED_START_STT}" docker compose -f "${RABBITBOT_DECOUPLED_COMPOSE_FILE}" "${compose_up_args[@]}" "${compose_services[@]}" )
+    log_info "解耦基础服务已就绪：services=${compose_services[*]}, workflow_host=${CONTAINER_NAME}, stt=${RABBITBOT_UNIFIED_START_STT}"
 }
 
 ensure_enabled_models() {
@@ -934,11 +953,11 @@ kill_stale_workflow() {
     fi
     log_warn "清理残留 workflow 进程：container=${CONTAINER_NAME}"
     docker exec "${CONTAINER_NAME}" bash -lc '
-        for pat in "[e]xamples/run_kuavo_agno.py" "[s]cripts/run_kuavo_agno_workflow.py" "[s]cripts/start_kuavo_agno_workflow.bash"; do
+        for pat in "[e]xamples/run_kuavo_agno.py" "[s]cripts/run_kuavo_agno_workflow.py" "[s]cripts/start_kuavo_agno_workflow.bash" "[s]cripts_1/start_lanshi_product_guide.py"; do
             pkill -TERM -f "$pat" 2>/dev/null || true
         done
         sleep 2
-        for pat in "[e]xamples/run_kuavo_agno.py" "[s]cripts/run_kuavo_agno_workflow.py" "[s]cripts/start_kuavo_agno_workflow.bash"; do
+        for pat in "[e]xamples/run_kuavo_agno.py" "[s]cripts/run_kuavo_agno_workflow.py" "[s]cripts/start_kuavo_agno_workflow.bash" "[s]cripts_1/start_lanshi_product_guide.py"; do
             pkill -KILL -f "$pat" 2>/dev/null || true
         done
     ' >/dev/null 2>&1 || true
@@ -1004,7 +1023,9 @@ launch_workflow_detached() {
     else
         dialogue_config="序号=0（默认）"
     fi
-    if [ "${RABBITBOT_NAV_WORKFLOW_VOICE_START}" = "1" ]; then
+    if [ "${RABBITBOT_LANSHI_GUIDE_MODE}" = "1" ]; then
+        log_info "启动兰石原地产品介绍循环：run_id=${current_run_id}"
+    elif [ "${RABBITBOT_NAV_WORKFLOW_VOICE_START}" = "1" ]; then
         log_info "启动 workflow 默认 QA 状态，等待语音口令开始导览：run_id=${current_run_id}"
     else
         log_info "预启动 workflow 并等待 go 闸门：run_id=${current_run_id}"
@@ -1012,6 +1033,7 @@ launch_workflow_detached() {
     log_info "workflow 台词配置：${dialogue_config}"
     docker exec -d \
         -e RABBITBOT_WORKFLOW_NON_INTEGRATION="${RABBITBOT_WORKFLOW_NON_INTEGRATION}" \
+        -e RABBITBOT_LANSHI_GUIDE_MODE="${RABBITBOT_LANSHI_GUIDE_MODE}" \
         -e RABBITBOT_WORKFLOW_VERBOSE="${RABBITBOT_WORKFLOW_VERBOSE}" \
         -e RABBITBOT_TTS_STRICT_FAILURE="${RABBITBOT_TTS_STRICT_FAILURE}" \
         -e RABBITBOT_GUIDE_START_BY_VOICE="${RABBITBOT_NAV_WORKFLOW_VOICE_START}" \
@@ -1044,7 +1066,11 @@ cd "${RABBITBOT_DIR}"
 echo running >"${control_dir}/${run_id}.status"
 echo "Workflow容器日志: ${log_path}" >>"${log_path}"
 echo "Workflow启动闸门文件: ${RABBITBOT_WORKFLOW_START_GATE_FILE}" >>"${log_path}"
-PYTHONUNBUFFERED=1 bash scripts/start_kuavo_agno_workflow.bash >>"${log_path}" 2>&1
+if [ "${RABBITBOT_LANSHI_GUIDE_MODE:-0}" = "1" ]; then
+    PYTHONUNBUFFERED=1 py310/bin/python scripts_1/start_lanshi_product_guide.py >>"${log_path}" 2>&1
+else
+    PYTHONUNBUFFERED=1 bash scripts/start_kuavo_agno_workflow.bash >>"${log_path}" 2>&1
+fi
 status=\$?
 echo "\${status}" >"${control_dir}/${run_id}.exit_code"
 date "+%Y-%m-%d %H:%M:%S" >"${control_dir}/${run_id}.finished_at"
@@ -1414,7 +1440,9 @@ main() {
             log_warn "workflow 预启动命令发送失败，重新进入循环"
             continue
         fi
-        if [ "${RABBITBOT_NAV_WORKFLOW_VOICE_START}" = "1" ]; then
+        if [ "${RABBITBOT_LANSHI_GUIDE_MODE}" = "1" ]; then
+            log_info "兰石原地导览已启动：持续循环介绍产品，不等待 go/back 命令。"
+        elif [ "${RABBITBOT_NAV_WORKFLOW_VOICE_START}" = "1" ]; then
             log_info "语音启动导览模式：workflow 已进入 QA 状态，不等待外部 go 命令。"
         else
             if ! wait_workflow_gate_ready; then

@@ -6,7 +6,7 @@
 # 五个容器：
 #   neo4j               官方 neo4j 镜像，提供图数据库 7687/7474
 #   rabbitbot-vlm       复用 core-portable，仅跑 VLM(8000)+Embedding(8005)
-#   rabbitbot-audio     复用 core-portable，仅跑 TTS(28185)+STT(28184)
+#   rabbitbot-audio     复用 core-portable，跑 TTS(28185)，按环境变量决定是否跑 STT(28184)
 #   rabbitbot-memory    复用 core-portable，仅跑 Memory Agent(28182)，依赖 neo4j+embedding
 #   rabbitbot-navbridge 复用 nav 镜像，提供导航桥接/Robot Agent 28180
 #
@@ -76,7 +76,7 @@ services:
       RABBITBOT_DIR: /workspace/projects/rabbitbot-dev-ros2-master
       RABBITBOT_MODELS_DIR: /models
       RABBITBOT_LOG_DIR: /workspace/projects/logs/unified_runtime
-      RABBITBOT_UNIFIED_START_STT: "1"
+      RABBITBOT_UNIFIED_START_STT: ${RABBITBOT_UNIFIED_START_STT:-0}
       RABBITBOT_TTS_ALLOW_BUILTIN: "1"
       # 默认 auto：由 start_tts_app.bash 探测 Unitree 网卡/本体音频服务，通过则用 unitree，
       # 失败（如机器人不在线、eno1 无载波）则自动回退本地声卡；不再写死 unitree 绕过健康检查。
@@ -95,7 +95,7 @@ services:
     device_cgroup_rules:
       - 'c 116:* rwm'
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://127.0.0.1:28184/docs >/dev/null 2>&1 || exit 1"]
+      test: ["CMD-SHELL", "curl -sf http://127.0.0.1:28185/docs >/dev/null 2>&1 || exit 1"]
       interval: 20s
       timeout: 10s
       retries: 30
@@ -156,8 +156,6 @@ services:
       - rabbitbot_portable_pyorbbecsdk:/workspace/projects/pyorbbecsdk-v2-py310
       - rabbitbot_portable_unitree_sdk2:/workspace/projects/unitree_sdk2
     depends_on:
-      rabbitbot-memory:
-        condition: service_healthy
       rabbitbot-audio:
         condition: service_healthy
     restart: unless-stopped
