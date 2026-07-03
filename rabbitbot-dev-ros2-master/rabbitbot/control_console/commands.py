@@ -17,12 +17,19 @@ RUNTIME_CONTAINER_NAME = "rabbitbot-unified-runtime"
 MAP_ENV_KEY = "NAV_PCD_PATH"
 NO_ROBOT_ENV_KEY = "RABBITBOT_NAV_WORKFLOW_NO_ROBOT"
 WORKFLOW_MANUAL_ENV_KEY = "RABBITBOT_WORKFLOW_NON_INTEGRATION"
+LANSHI_GUIDE_ENV_KEY = "RABBITBOT_LANSHI_GUIDE_MODE"
 
 COMPOSE_PROJECT_CONTAINER_ENVS = [
     ("RABBITBOT_NEO4J_CONTAINER_NAME", "neo4j"),
     ("RABBITBOT_VLM_CONTAINER_NAME", "rabbitbot-vlm"),
     ("RABBITBOT_AUDIO_CONTAINER_NAME", "rabbitbot-audio"),
     ("RABBITBOT_MEMORY_CONTAINER_NAME", "rabbitbot-memory"),
+    ("RABBITBOT_WORKFLOW_CONTAINER_NAME", "rabbitbot-workflow"),
+    ("RABBITBOT_NAV_BRIDGE_CONTAINER_NAME", "rabbitbot-navbridge"),
+]
+
+LANSHI_PROJECT_CONTAINER_ENVS = [
+    ("RABBITBOT_AUDIO_CONTAINER_NAME", "rabbitbot-audio"),
     ("RABBITBOT_WORKFLOW_CONTAINER_NAME", "rabbitbot-workflow"),
     ("RABBITBOT_NAV_BRIDGE_CONTAINER_NAME", "rabbitbot-navbridge"),
 ]
@@ -232,8 +239,22 @@ def _effective_base_runtime() -> str:
     return "compose"
 
 
+def _env_flag_enabled(name: str, default: str = "0") -> bool:
+    value = os.environ.get(name, default).strip().lower()
+    return value in {"1", "true", "yes", "on"}
+
+
+def _effective_lanshi_guide_mode() -> bool:
+    # lanshi 分支专用：控制台进程未显式设置时，也与 start_loop_entry.sh 保持默认开启。
+    return _env_flag_enabled(LANSHI_GUIDE_ENV_KEY, default="1")
+
+
 def resolve_project_service_containers(runtime_container_name: str = RUNTIME_CONTAINER_NAME) -> list[str]:
     if _effective_base_runtime() == "compose":
+        if _effective_lanshi_guide_mode():
+            containers = _dedupe_non_empty([os.environ.get(key, default) for key, default in LANSHI_PROJECT_CONTAINER_ENVS])
+            logger.info("兰石导览模式关闭程序容器范围：containers=%s", containers)
+            return containers
         return _dedupe_non_empty([os.environ.get(key, default) for key, default in COMPOSE_PROJECT_CONTAINER_ENVS])
     return _dedupe_non_empty([runtime_container_name])
 

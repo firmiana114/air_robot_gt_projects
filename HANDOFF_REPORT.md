@@ -29,6 +29,12 @@ RabbitBot 自主运行包，部署在 ShuHao-orin。Git 根 `/mnt/disk1/gt/air_r
 
 ## 当前状态
 
+本轮更新（2026-07-03，控制台关闭程序仅重启兰石相关容器）：
+- 背景：前端“关闭程序”会停止 `rabbitbot-loop.service` 后重启 compose 项目服务容器；原逻辑在 compose 模式下会重启 `neo4j`、`rabbitbot-vlm`、`rabbitbot-audio`、`rabbitbot-memory`、`rabbitbot-workflow`、`rabbitbot-navbridge` 全部容器，不符合兰石轻量导览需求。
+- 已完成：`rabbitbot/control_console/commands.py::resolve_project_service_containers` 在 `RABBITBOT_LANSHI_GUIDE_MODE` 默认开启时，仅返回 `rabbitbot-audio`、`rabbitbot-workflow`、`rabbitbot-navbridge`；显式设置 `RABBITBOT_LANSHI_GUIDE_MODE=0` 时仍保留完整 compose 容器重启范围。
+- 已完成：新增/调整控制台命令测试，覆盖兰石默认容器范围、关闭兰石模式后的完整 compose 容器范围、旧 unified 容器兼容路径。
+- 注意：控制台进程若已在运行，需重启 `rabbitbot-control-console.service` 才能加载本次 Python 代码改动。
+
 本轮更新（2026-07-03，兰石企业原地产品导览分支）：
 - 当前分支：`lanshi`，基于 `cb97945 调整TTS音频设备选择顺序为auto` 创建，专门服务兰石企业导览任务。
 - 任务定位：机器人站在原地循环介绍兰石平台产品，不进行导航移动，不启动 VLM、Embedding、STT、Memory；只保留 TTS、28180 动作桥接和 workflow 宿主。
