@@ -39,10 +39,8 @@ sudo systemctl start rabbitbot-control-console.service
 1. 在浏览器打开控制台：
 
 ```text
-http://192.168.101.90:8080
+http://<orin的ip>:8080
 ```
-
-如果现场 IP 变更，请使用 ShuHao-orin 当前 IP 的 `8080` 端口。
 
 2. 点击 **开始程序**。
 
