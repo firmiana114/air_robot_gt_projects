@@ -29,6 +29,11 @@ RabbitBot 自主运行包，部署在 ShuHao-orin。Git 根 `/mnt/disk1/gt/air_r
 
 ## 当前状态
 
+本轮更新（2026-07-03，README 改为兰石现场快速启动文档）：
+- 背景：根目录 `README.md` 原本是 portable/legacy 部署与架构长文，不适合没接触过项目的人在现场快速启动兰石导览。
+- 已完成：将根目录 `README.md` 替换为兰石导览现场快速启动文档，只保留前端启动、终端启动、停止、日志查看、常用确认命令和现场注意事项。
+- 已说明：正式现场使用前端“开始程序”或 `sudo systemctl start rabbitbot-loop.service`；“开始程序（无机器人模式）”仅适合 TTS 测试，不适合动作展示；如前端关闭程序仍重启很多容器，需要先重启 `rabbitbot-control-console.service` 加载最新代码。
+
 本轮更新（2026-07-03，控制台关闭程序仅重启兰石相关容器）：
 - 背景：前端“关闭程序”会停止 `rabbitbot-loop.service` 后重启 compose 项目服务容器；原逻辑在 compose 模式下会重启 `neo4j`、`rabbitbot-vlm`、`rabbitbot-audio`、`rabbitbot-memory`、`rabbitbot-workflow`、`rabbitbot-navbridge` 全部容器，不符合兰石轻量导览需求。
 - 已完成：`rabbitbot/control_console/commands.py::resolve_project_service_containers` 在 `RABBITBOT_LANSHI_GUIDE_MODE` 默认开启时，仅返回 `rabbitbot-audio`、`rabbitbot-workflow`、`rabbitbot-navbridge`；显式设置 `RABBITBOT_LANSHI_GUIDE_MODE=0` 时仍保留完整 compose 容器重启范围。
