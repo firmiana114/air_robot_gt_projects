@@ -1,66 +1,77 @@
 # air_robot_gt_projects 交接报告
 
-## 背景和目标
+## 项目整体描述
 
-本仓库是 RabbitBot 机器人现场导览项目，目标机路径为 `/mnt/disk1/gt/air_robot_gt_projects`，当前重点分支为 `lanshi`，用于兰石企业导览。核心代码位于 `rabbitbot-dev-ros2-master/`，Python 包为 `rabbitbot`，主要通过 `rabbitbot-control-console.service` 提供前端控制台（8080），通过 `rabbitbot-loop.service` 启动导览主循环。
+本仓库是 RabbitBot 机器人现场导览项目，目标机路径通常为 `/mnt/disk1/gt/air_robot_gt_projects`，当前重点分支为 `lanshi`。项目用于机器人导览、问答、导航桥接、TTS/STT、VLM/Embedding、Memory/Neo4j、动作控制和局域网 Web 控制台。
 
-本轮目标：根据用户上传的 `绿色低碳智慧后勤管理平台修改稿终版.docx`，将兰石原地导览讲解词替换为更完整的绿色低碳智慧化校园管理服务平台版本，并让单轮讲解从第一个字开始到最后一个字结束的计划时长为 5 分 15 秒（315 秒）。
+核心代码位于 `rabbitbot-dev-ros2-master/`，Python 包为 `rabbitbot`。前端控制台不是独立 Node/Vite 项目，而是 `rabbitbot/control_console/app.py` 中 FastAPI 内嵌 HTML/CSS/原生 JavaScript，并由 `rabbitbot-control-console.service` 或 `scripts_1/start_control_console.sh` 启动。
 
-主要模块：
-- `rabbitbot-dev-ros2-master/scripts_1/`：systemd 主循环入口、导航桥接与 workflow 编排脚本。
-- `rabbitbot-dev-ros2-master/scripts_1/start_lanshi_product_guide.py`：兰石原地循环导览脚本，本轮修改点。
-- `rabbitbot-dev-ros2-master/rabbitbot/control_console/`：前端控制台后端，负责开始/关闭程序、状态查询、容器重启。
-- `rabbitbot-dev-ros2-master/docker/portable/docker-compose.decoupled.yaml`：解耦容器栈配置。
+主要模块和目录：
+- `rabbitbot-dev-ros2-master/rabbitbot/control_console/`：本轮修改重点，FastAPI 控制台、状态查询、台词编辑、开机自启动和容器重启接口。
+- `rabbitbot-dev-ros2-master/rabbitbot/agno_agents/`：导览、QA 和 workflow 逻辑。
+- `rabbitbot-dev-ros2-master/rabbitbot/robots/`：机器人动作、导航和任务管理封装。
+- `rabbitbot-dev-ros2-master/scripts_1/`：现场主启动/停止/诊断脚本；当前项目版本未确认是否包含参考项目的 `guide_state` 写入逻辑。
+- `rabbitbot-dev-ros2-master/scripts/`：TTS/STT/VLM/robot app 等专项入口。
+- `rabbitbot-dev-ros2-master/conf/`：导览 JSON 配置，控制台热更新读写 `dialogue_*.json`。
+- `rabbitbot-dev-ros2-master/docker/portable/`：portable/compose 解耦运行时配置。
 - `rabbitbot-dev-ros2-master/tests/control_console/`：控制台相关测试。
-- `runtime/portable.env`：目标机本地运行配置，未入库；`runtime/portable.env.example` 是模板。
-- `logs/`：运行日志目录。
+- `deploy/`：宿主安装、检查、镜像导入导出和 systemd 部署脚本。
+- `logs/`、`runtime/`：运行日志和运行态配置；真实现场文件通常不入 Git。
 
-核心数据流（兰石分支）：前端或终端启动 `rabbitbot-loop.service` -> `start_loop_entry.sh` 默认启用 `RABBITBOT_LANSHI_GUIDE_MODE=1` -> `start_nav_bridge_workflow_loop.sh` 仅拉起兰石相关容器与动作桥接 -> `start_lanshi_product_guide.py` 按句调用 TTS `/exec` 流式播报，并穿插 28180 动作请求 -> 单轮结束后等待 5 秒循环。
+主要技术栈：Python 3.10+、FastAPI、Pydantic、Uvicorn、pytest、ROS2 Humble、Docker Compose、Neo4j、Unitree/Kuavo 动作与导航接口。模型、ROS action 工作区和现场设备依赖完整性未确认。
+
+核心数据流：
+1. 浏览器访问控制台 8080，控制台调用 `/api/status` 展示主循环、导航桥接、workflow、定位和服务状态。
+2. 控制台“导览/返航/重启/关闭/自启动”等按钮调用白名单 API，再由 `systemctl`、Docker 或 `send_nav_workflow_command.sh` 执行。
+3. 点位台词页面读写 `conf/dialogue_*.json`，下一次导览读取更新后的 opening、steps、points 和 `variables.leader_calling`。
+4. 导览 workflow 通过导航桥接 28180、TTS/STT/VLM/Memory 等服务完成讲解、导航和交互。
+
+常用命令：
+- 控制台入口：`bash rabbitbot-dev-ros2-master/scripts_1/start_control_console.sh`
+- 主循环入口：`bash rabbitbot-dev-ros2-master/scripts_1/start_loop_entry.sh`
+- 控制台检查：`python3 -m py_compile rabbitbot-dev-ros2-master/rabbitbot/control_console/app.py`
+- 控制台测试：`PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest rabbitbot-dev-ros2-master/tests/control_console/test_app.py rabbitbot-dev-ros2-master/tests/control_console/test_commands.py rabbitbot-dev-ros2-master/tests/control_console/test_status.py`
+
+## 本轮修改
+
+- 将当前项目控制台前端同步为 `/Users/firmiana/Desktop/rabbitbot-dev-ros2-master` 参考项目风格：左侧导航、顶部状态条、任务控制科技风大屏、机器人展示图、机器人状态页、点位台词页和模型服务页。
+- 新增静态资源挂载 `/static/control_console`，页面引用 `rabbitbot/control_console/static/unitree-g1-dashboard.png`。
+- 同步参考项目的点位台词热更新与嘉宾称呼功能：新增 `/api/dialogue/hot-rows`、`/api/dialogue/leader-calling`，支持从当前定位位姿回填坐标。
+- 新增 `/api/autostart` 与 `loop_service_autostart_enabled`/`set_loop_service_autostart`，支持前端开关 `rabbitbot-loop.service` 开机自启动。
+- 保留当前项目已有能力：`/api/service/restart` 后台重启服务容器、`/api/start-no-robot`、无机器人模式、portable nav 容器日志回退、runtime 日志查询和关闭程序时重启项目相关容器。
+- 增加 `guide_state_file` 配置；若当前项目没有参考项目的 `guide_state` 文件，但 workflow 已 ready，则 API 兼容推断为 `qa_listening`，避免导览按钮被永久禁用。
+- 更新控制台页面测试断言以匹配新 UI。
 
 ## 当前状态
 
-- 当前分支：`lanshi`，修改前 HEAD 为 `d8f31e4 更新兰石现场文档地址说明`。
-- 本轮已将 `start_lanshi_product_guide.py` 中旧的 5 句简介替换为 DOCX 正文对应的 29 段讲解词，内容覆盖平台背景、数字孪生、设备管理、能源管理、安环管理和结尾总结。
-- 本轮新增单轮时长控制：默认 `RABBITBOT_LANSHI_TARGET_ROUND_SECONDS=315.0`，按当前 Unitree TTS 等待估算参数计算播报时长，并把差额补齐到句间停顿中；默认启用 `RABBITBOT_LANSHI_PACING_ENABLED=1`。
-- 当前计划时长计算结果：29 段、可见字符 1283 个、估算纯播报 279.8 秒、基础句间停顿 5.6 秒、额外补齐 29.6 秒、计划总时长 315.0 秒。
-- 为避免单句超过 Unitree 本体 TTS 等待估算的 30 秒上限，已将 DOCX 第一段长句拆成两个连续播报段，文字内容未删减。
-- 本轮未启动真实导览，未触发 TTS 播报或机器人动作。
+- 代码已完成修改。
+- `HANDOFF_REPORT.md` 已更新。
+- 需要提交本轮修改；静态图片目录被 `.gitignore` 忽略，提交时需 `git add -f rabbitbot-dev-ros2-master/rabbitbot/control_console/static/unitree-g1-dashboard.png`。
 
-## 已验证的事实
+## 已验证事实
 
-- 已从用户上传 DOCX 中抽取正文，确认标题为“绿色低碳智慧化校园管理服务平台”，正文与本轮替换后的讲解词一致。
-- 已执行 `python3 -m py_compile rabbitbot-dev-ros2-master/scripts_1/start_lanshi_product_guide.py`，语法检查通过。
-- 已执行脚本内时长计划校验：`planned_total=315.000`、`target=315.000`、`drift=0.000000`。
-- 已执行 `git diff --check`，未发现空白错误。
-- 代码日志点已覆盖本轮新增关键路径：导览启动目标时长、轮次计划、每句 TTS 提交/完成耗时、句间节奏补齐等待、轮次结束实际耗时和偏差。
+- 已执行 `python3 -m py_compile` 覆盖 `app.py`、`dialogue.py`、`commands.py`、`status.py`、`config.py` 和控制台测试文件，语法检查通过。
+- 当前系统 Python 缺少 `pytest` 和 `fastapi`，无法在本机用当前解释器运行 FastAPI TestClient 或 pytest。
+- 已确认当前项目不是 Node/Vite 前端，页面由 FastAPI 内嵌 HTML/CSS/JS 提供。
+- 已确认参考项目包含控制台静态图片，当前项目静态目录此前不存在且被 Git 忽略。
+- 本轮未启动控制台服务、未访问真实 8080 页面、未发送 go/back、未移动机器人。
 
 ## 阻塞问题
 
-- 尚未在现场实际启动 `rabbitbot-loop.service` 跑完整兰石循环，因此 315 秒目前是基于脚本和 Unitree TTS 等待估算的计划时长；如机器人本体实际发声速度与估算差异较大，需要现场根据日志中的 `drift` 调整 `RABBITBOT_LANSHI_ESTIMATED_CHARS_PER_SECOND` 或目标时长参数。
-- 当前机器此前观察到 `rabbitbot-loop.service` 和 `rabbitbot-control-console.service` 为 inactive，28185 TTS、28180 动作桥接和 8080 控制台端口未监听；本轮未处理服务启动问题。
-- 当前机器此前观察到旧容器 `rabbitbot-tts` / `rabbitbot-stt` 处于重启状态，且角色入口只接受 `vlm | audio | memory`；如果现场启动仍失败，优先清理旧音频容器并按当前 compose 设计拉起 `rabbitbot-audio`。
+- 本机缺少 `pytest`、`fastapi`，控制台单测和运行时接口自检未能执行。
+- 当前项目版本未确认是否有脚本写入 `runtime/nav_workflow_control/guide_state`；已通过 workflow ready 回退兼容，但现场若要完全复刻参考项目状态语义，需确认或移植参考脚本的 guide_state 写入逻辑。
+- 未做浏览器视觉验收；需启动控制台后确认静态机器人图片可加载、移动端布局可用。
 
-## 建议的下一步
+## 下一步
 
-1. 提交本轮修改后，在现场启动前确认容器名与当前 compose 一致，重点看 `rabbitbot-audio`、`rabbitbot-workflow`、`rabbitbot-navbridge`。
-2. 启动 `rabbitbot-control-console.service` 后，通过前端点击“开始程序”或执行 `sudo systemctl start rabbitbot-loop.service`。
-3. 首轮播放时关注 `logs/current_runtime.log` 或 `logs/nav_workflow_control/rabbitbot_workflow_latest.log` 中的 `planned_total`、`elapsed`、`drift`，确认实际单轮是否接近 315 秒。
-4. 若实际偏快或偏慢，优先通过环境变量微调 `RABBITBOT_LANSHI_ESTIMATED_CHARS_PER_SECOND`；数值越大，估算播报越短，句间补齐越长。
-5. 如果 TTS 或动作不可用，先恢复 28185 和 28180，再验证讲解词时长。
+1. 在具备依赖的环境运行控制台 pytest 命令。
+2. 启动 `rabbitbot-control-console.service` 或脚本入口，浏览器打开 `http://<orin-ip>:8080` 做视觉和按钮可用性检查。
+3. 在现场确认点位台词热更新写入 `conf/dialogue_0.json` 后，下一次导览能读取新点位和嘉宾称呼。
+4. 如需严格对齐参考项目导览阶段展示，继续检查 `scripts_1/start_nav_bridge_workflow_loop.sh` 是否应同步 `guide_state` 写入逻辑。
 
 ## 注意事项
 
-- 现场前端启动：浏览器打开 `http://<orin的ip>:8080`，点击“开始程序”。“开始程序（无机器人）”只适合 TTS 测试，不适合动作展示。
-- 终端启动：`sudo systemctl start rabbitbot-loop.service`；停止：`sudo systemctl stop rabbitbot-loop.service`。
-- 查看日志：当前运行日志通常在 `/mnt/disk1/gt/air_robot_gt_projects/logs/current_runtime.log`，systemd 日志用 `journalctl -u rabbitbot-loop.service -f`。
-- 兰石模式默认不启动 VLM、Embedding、STT、Memory；如要回到原导览模式，需要显式设置或切换分支，避免和兰石现场配置混用。
-- 不要清理用户未跟踪文件；遇到 dirty worktree 先看 diff 再处理。
-
-## 最近历史摘要
-
-- 本轮：替换兰石讲解词为 DOCX 完整版，并新增 315 秒单轮节奏控制和诊断日志。
-- `d8f31e4` 更新兰石现场文档地址说明。
-- `cc4b543` 改写兰石现场启动说明。
-- `080b24f` 限制兰石关闭程序的容器重启范围。
-- `9c4adcf` 新增兰石原地循环导览模式。
-- 更早的内存、解耦容器、音频设备、模型下载等历史已压缩，必要时用 `git log --oneline --decorate --all` 和对应提交查看。
+- 不要把真实 `runtime/portable.env`、日志、大模型缓存或密钥类配置提交到 Git。
+- `/api/service/restart` 会重启服务所在 Docker 容器；TTS/STT 同容器时会一并受影响。
+- 点位台词保存会备份原 JSON，日志只记录路径、行数、点位 key 和错误类型，不记录完整台词或大段 JSON。
+- 控制台“任务控制”页中的机器人状态、运动状态、任务信息、导航地图和语音交互为展示型模块，页面中标注“开发中”；真正联动的是底部导览、返航、重启、关闭和自启动按钮。

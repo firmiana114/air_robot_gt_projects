@@ -53,37 +53,47 @@ RabbitBot 是面向人形机器人导览、问答、导航和动作控制的 Pyt
 
 ## 本轮修改
 
-- 将 `scripts_1/start_lanshi_product_guide.py` 的兰石默认穿插动作从 `high_wave` 替换为 `双手平摊开掌心向上`。
-- `DEFAULT_ACTIONS` 当前为 `["face_wave", "right_hand_up", "", "right_hand_up", "双手平摊开掌心向上"]`。
-- 本轮未新增日志；该脚本已有 INFO/WARN 日志会打印动作触发、动作返回和失败上下文。
+- 控制台前端已同步为 `/Users/firmiana/Desktop/rabbitbot-dev-ros2-master` 参考项目风格：左侧导航、顶部状态条、任务控制科技风大屏、机器人展示图、机器人状态页、点位台词页和模型服务页。
+- 新增静态资源挂载 `/static/control_console`，页面使用 `rabbitbot/control_console/static/unitree-g1-dashboard.png`。
+- 同步参考项目点位台词热更新与嘉宾称呼功能，新增 `/api/dialogue/hot-rows`、`/api/dialogue/leader-calling`，支持从当前定位位姿回填坐标。
+- 新增 `/api/autostart` 与开机自启动查询/设置函数，前端可启用或关闭 `rabbitbot-loop.service` 自启动。
+- 保留当前项目已有控制台能力：服务容器后台重启、无机器人模式、portable nav 容器日志回退、runtime 日志和关闭程序时重启项目相关容器。
+- 增加 `guide_state_file` 配置；如果当前项目没有参考项目的 `guide_state` 文件但 workflow ready，会兼容推断为 `qa_listening`，避免导览按钮不可用。
+- 更新控制台页面测试断言以匹配新 UI。
 
 ## 当前状态
 
 - 代码已修改并通过语法检查。
-- `HANDOFF_REPORT.md` 已按超过 150 行需压缩的规则重写为精简版。
-- 本轮相关修改已整理为一次 Git 提交。
+- 根目录和子项目 `HANDOFF_REPORT.md` 已更新。
+- 本轮相关修改待整理为一次 Git 提交；静态图片目录被 `.gitignore` 忽略，提交时需强制 add 图片文件。
 
 ## 已验证事实
 
-- `双手平摊开掌心向上` 是底层自定义动作解析支持的中文别名，会映射到 `both_hands_stable`。
-- 兰石脚本动作链路不做本地白名单校验，只把动作名通过 HTTP 表单字段 `task` 发给 `/do_arm_async`。
-- `start_lanshi_product_guide.py` 语法检查通过。
-- 本轮未启动真实 TTS、Robot Agent 或 ROS2 action server，未做真机动作验证。
+- 已执行 `python3 -m py_compile rabbitbot/control_console/app.py rabbitbot/control_console/dialogue.py rabbitbot/control_console/commands.py rabbitbot/control_console/status.py rabbitbot/control_console/config.py tests/control_console/test_app.py tests/control_console/test_commands.py tests/control_console/test_status.py`，语法检查通过。
+- 当前系统 Python 缺少 `pytest` 和 `fastapi`，无法在本机用当前解释器运行控制台 pytest 或 FastAPI TestClient。
+- 已确认本项目控制台前端是 FastAPI 内嵌 HTML/CSS/原生 JavaScript，不是独立 Node/Vite 项目。
+- 已确认参考项目静态机器人图片已复制到当前项目，但该目录默认被 Git 忽略。
+- 本轮未启动控制台服务、未发送 go/back、未移动机器人。
 
 ## 阻塞问题
 
-- 无阻塞。
-- 真机上是否正确执行该中文别名，仍取决于现场实际启动的底层 arm action server 是否为支持 `g1_actions::ParseActionInput` 的自定义动作服务；如果现场只启动官方预置动作服务，该中文别名可能会被拒绝。
+- 本机缺少 `pytest`、`fastapi`，控制台单测和运行时接口自检未能执行。
+- 当前项目版本未确认是否有脚本写入 `runtime/nav_workflow_control/guide_state`；已做 workflow ready 回退兼容，若要完全复刻参考项目状态语义，需继续核对或移植参考脚本的 `guide_state` 写入逻辑。
+- 未做浏览器视觉验收；需启动控制台后确认静态图片可加载、布局与参考项目一致。
 
 ## 下一步
 
-- 在现场启动兰石导览后观察日志中 `触发兰石穿插动作` 是否出现 `action=双手平摊开掌心向上`。
-- 若 Robot Agent 返回动作名无效，应确认当前 `navi_arm` 服务是自定义动作服务还是官方预置动作服务。
+- 在具备依赖的环境运行 `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest tests/control_console/test_app.py tests/control_console/test_commands.py tests/control_console/test_status.py`。
+- 启动 `scripts_1/start_control_console.sh` 或 `rabbitbot-control-console.service`，浏览器打开 8080 验收页面。
+- 在网页保存一次点位台词和嘉宾称呼，确认 `conf/dialogue_0.json` 写入、备份和下一次导览读取正常。
+- 如需严格对齐参考项目导览阶段展示，继续检查 `scripts_1/start_nav_bridge_workflow_loop.sh` 是否应同步 `guide_state` 写入逻辑。
 
 ## 注意事项
 
-- `RABBITBOT_LANSHI_ACTIONS` 环境变量会覆盖 `DEFAULT_ACTIONS`；若现场环境里显式设置了该变量，本轮默认值修改不会生效。
-- `release` 收手逻辑不在兰石脚本中自动追加；该脚本只按默认动作列表逐句穿插触发动作。
+- 不要提交真实 `runtime/portable.env`、日志、大模型缓存或密钥类配置。
+- `/api/service/restart` 会重启服务所在 Docker 容器；TTS/STT 同容器时会一并受影响。
+- 点位台词保存会备份原 JSON，日志只记录路径、行数、点位 key 和错误类型，不记录完整台词或大段 JSON。
+- 控制台“任务控制”页中的机器人状态、运动状态、任务信息、导航地图和语音交互为展示型模块，页面中标注“开发中”；真正联动的是底部导览、返航、重启、关闭和自启动按钮。
 
 ## 历史近期工作压缩记录
 

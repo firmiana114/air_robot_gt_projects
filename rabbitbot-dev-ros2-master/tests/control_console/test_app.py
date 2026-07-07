@@ -16,6 +16,7 @@ def make_config(tmp_path):
     nav_log_dir = project_root / "logs" / "nav_workflow_control"
     workflow_log_dir = project_root / "logs" / "nav_workflow_control"
     current_runtime_log = project_root / "logs" / "current_runtime.log"
+    guide_state_file = project_root / "runtime" / "nav_workflow_control" / "guide_state"
     dialogue_dir = project_root / "conf"
     command_script.parent.mkdir(parents=True)
     systemctl_path.parent.mkdir(parents=True)
@@ -56,6 +57,7 @@ def make_config(tmp_path):
         docker_path=docker_path,
         workflow_log_dir=workflow_log_dir,
         current_runtime_log=current_runtime_log,
+        guide_state_file=guide_state_file,
         loop_service_name="rabbitbot-loop.service",
         systemctl_path=systemctl_path,
         sudo_path=None,
@@ -392,50 +394,46 @@ def test_page_shows_console_without_login_form(tmp_path):
     assert 'id="loginForm"' not in response.text
     assert 'password' not in response.text.lower()
     assert '/api/login' not in response.text
-    assert '开始任务' in response.text
+    assert 'RabbitBot 控制台' in response.text
+    assert '任务控制' in response.text
+    assert '机器人状态' in response.text
+    assert '点位台词' in response.text
+    assert '模型服务' in response.text
+    assert '双足机器人导览系统' in response.text
+    assert '开始任务 / 运动控制' in response.text
     assert '导览' in response.text
-    assert '对话' in response.text
-    assert '视觉导航' in response.text
     assert '/api/task' in response.text
     assert '返航' in response.text
     assert '定位状态' in response.text
     assert '当前位姿' in response.text
-    assert '开始程序' in response.text
-    assert '一键重启主循环' in response.text
+    assert '一键重启' in response.text
     assert '关闭程序' in response.text
-    assert '/api/start' in response.text
-    assert 'startProgram' in response.text
+    assert '开机自启动' in response.text
+    assert '/api/autostart' in response.text
+    assert 'toggleAutostart' in response.text
     assert 'waitForServicesReady' in response.text
     assert '所有服务已加载成功，可执行相关操作' in response.text
-    assert '服务仍未全部就绪' not in response.text
+    assert '服务仍未全部就绪' in response.text
     assert '/api/stop' in response.text
     assert 'stopProgram' in response.text
     assert '/api/restart' in response.text
     assert '重启地图' in response.text
     assert 'mapPathInput' in response.text
     assert 'map_path' in response.text
-    assert '服务状态' in response.text
-    assert 'serviceStatusGrid' in response.text
-    assert 'renderServiceStatus' in response.text
-    assert 'restartService' in response.text
-    assert 'pendingRestartUntil' in response.text
-    assert '/api/service/restart' in response.text
-    assert '位于同一容器，将被一并重启' in response.text
-    assert '导览讲解词' in response.text
-    assert response.text.index('服务状态') < response.text.index('导览讲解词')
-    assert '加载讲解词' in response.text
-    assert '保存讲解词' in response.text
-    assert '折叠讲解词' in response.text
-    assert '展开讲解词' in response.text
-    assert 'dialogueToggleBtn' in response.text
-    assert 'toggleDialogueEditor' in response.text
-    assert 'dialogueEditor' in response.text
+    assert 'unitree-g1-dashboard.png' in response.text
+    assert '开发中' in response.text
+    assert '嘉宾称呼' in response.text
+    assert '加载嘉宾称呼' in response.text
+    assert '保存嘉宾称呼' in response.text
+    assert '点位台词热更新' in response.text
+    assert '加载点位台词' in response.text
+    assert '保存点位台词' in response.text
+    assert '更新为机器人当前位置' in response.text
+    assert '/api/dialogue/leader-calling' in response.text
+    assert '/api/dialogue/hot-rows' in response.text
     assert '/api/dialogue' in response.text
-    assert '显示日志' in response.text
-    assert '关闭日志' in response.text
-    assert 'logsVisible=false' in response.text
-    assert '<pre id="logs" class="log" hidden>' in response.text
-    assert 'setInterval(refreshLogs,500)' in response.text
+    assert 'data.guide_state' in response.text
+    assert "data.workflow&&data.workflow.ready" in response.text
 
 def test_restart_preserves_no_robot_mode(tmp_path):
     # 一键重启主循环：若重启前为无机器人模式，应沿用无机器人模式而非覆盖成真机。

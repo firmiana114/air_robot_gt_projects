@@ -21,6 +21,7 @@ class ConsoleConfig:
     docker_path: Path
     workflow_log_dir: Path
     current_runtime_log: Path
+    guide_state_file: Path
     loop_service_name: str
     systemctl_path: Path
     sudo_path: Path | None
@@ -62,6 +63,10 @@ class ConsoleConfig:
             docker_path=Path(os.environ.get("RABBITBOT_CONSOLE_DOCKER_PATH", "/usr/bin/docker")),
             workflow_log_dir=project_root.parent / "logs" / "nav_workflow_control",
             current_runtime_log=Path(os.environ.get("RABBITBOT_CURRENT_RUNTIME_LOG", str(project_root.parent / "logs" / "current_runtime.log"))),
+            guide_state_file=Path(os.environ.get(
+                "RABBITBOT_NAV_WORKFLOW_GUIDE_STATE_FILE",
+                str(project_root / "runtime" / "nav_workflow_control" / "guide_state"),
+            )),
             loop_service_name=os.environ.get("RABBITBOT_LOOP_SERVICE", "rabbitbot-loop.service"),
             systemctl_path=Path(os.environ.get("RABBITBOT_CONSOLE_SYSTEMCTL_PATH", "/usr/bin/systemctl")),
             sudo_path=sudo_path,

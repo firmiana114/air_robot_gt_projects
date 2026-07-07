@@ -76,6 +76,17 @@ class ServiceStatus:
         return asdict(self)
 
 
+@dataclass(frozen=True)
+class GuideState:
+    state: str = "unknown"
+    run_id: str = ""
+    detail: str = ""
+    time: str = ""
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+
 def strip_ansi(value: str) -> str:
     return ANSI_RE.sub("", value)
 
@@ -85,6 +96,26 @@ def _read_text(path: Path) -> str | None:
         return path.read_text(encoding="utf-8", errors="replace").strip()
     except OSError:
         return None
+
+
+def read_guide_state(path: Path) -> GuideState:
+    raw_text = _read_text(path)
+    if not raw_text:
+        return GuideState()
+
+    values: dict[str, str] = {}
+    for line in raw_text.splitlines():
+        if "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        values[key.strip()] = value.strip()
+
+    return GuideState(
+        state=values.get("state") or "unknown",
+        run_id=values.get("run_id") or "",
+        detail=values.get("detail") or "",
+        time=values.get("time") or "",
+    )
 
 
 def latest_file(directory: Path, pattern: str) -> Path | None:
