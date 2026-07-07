@@ -78,6 +78,13 @@ def _resolve_kokoro_model_dir():
     return project_model_dir, "project_models_missing"
 
 
+def _env_enabled(name, default=False):
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Language selection")
     parser.add_argument("--lang", type=str, default="zh")
@@ -228,10 +235,31 @@ class EspnetTTS(object):
         self.device_id = device_id
         self.target_sr = self.orig_sr
         self.sd_stream = None
+        self.use_system_default_output = _env_enabled("RABBITBOT_TTS_USE_SYSTEM_DEFAULT", True)
         if self.device_id is not None and self.device_id >= 0:
             info = sd.query_devices(self.device_id, 'output')
             self.target_sr = info["default_samplerate"]
             self.sd_stream = SDOutputStream(self.device_id, self.target_sr)
+            file_logger.info(
+                "TTS 使用指定 sounddevice 输出设备：device_id=%s, device_name=%s, target_sr=%s",
+                self.device_id,
+                info.get("name"),
+                self.target_sr,
+            )
+        elif self.use_system_default_output:
+            try:
+                info = sd.query_devices(None, 'output')
+                self.target_sr = info["default_samplerate"]
+                self.sd_stream = SDOutputStream(None, self.target_sr)
+                file_logger.info(
+                    "TTS 使用系统默认音频输出：device_name=%s, target_sr=%s",
+                    info.get("name"),
+                    self.target_sr,
+                )
+                print(f"EspnetTTS: 使用系统默认音频输出 name={info.get('name')}, target_sr={self.target_sr}")
+            except Exception as exc:
+                file_logger.exception("TTS 打开系统默认音频输出失败：error_type=%s", type(exc).__name__)
+                print(f"EspnetTTS: 打开系统默认音频输出失败，将跳过实际播放: {exc}")
         else:
             print("EspnetTTS: 未配置输出音频设备，将跳过实际播放")
         self.debug_mode = debug_mode

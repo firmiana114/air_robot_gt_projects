@@ -162,9 +162,8 @@ if [ "${RABBITBOT_TTS_BACKEND}" = "auto" ]; then
         tts_start_log "TTS后端自动选择完成：effective=unitree, reason=Unitree接口、链路、IPv4与音频服务探测通过"
         RABBITBOT_TTS_BACKEND="unitree"
     else
-        tts_start_log "TTS后端自动选择完成：effective=local, reason=Unitree健康检查失败，回退本地外接输出设备"
+        tts_start_log "TTS后端自动选择完成：effective=local, reason=Unitree健康检查失败，回退系统默认音频输出"
         RABBITBOT_TTS_BACKEND="local"
-        export TTS_DEVICE_NAME="${TTS_DEVICE_NAME:-BT67}"
     fi
     export RABBITBOT_TTS_BACKEND
 fi
@@ -175,7 +174,15 @@ case "${RABBITBOT_TTS_BACKEND}" in
         export OUTPUT_DEVICE_INDEX=""
         ;;
     *)
-        # TTS_DEVICE_NAME 只在明确指定时作为最高优先级；默认自动选择稳定出现的外接声卡。
+        # 默认使用系统音频默认输出，避免现场绑定易变化的 sounddevice index。
+        # 如需恢复旧逻辑按设备名/index 扫描，可设置 RABBITBOT_TTS_USE_SYSTEM_DEFAULT=0。
+        RABBITBOT_TTS_USE_SYSTEM_DEFAULT="${RABBITBOT_TTS_USE_SYSTEM_DEFAULT:-1}"
+        export RABBITBOT_TTS_USE_SYSTEM_DEFAULT
+        if env_enabled "${RABBITBOT_TTS_USE_SYSTEM_DEFAULT}"; then
+            export OUTPUT_DEVICE_INDEX=""
+            echo "使用系统默认音频输出播放 TTS；如需固定外接声卡，请设置 RABBITBOT_TTS_USE_SYSTEM_DEFAULT=0 并配置 TTS_DEVICE_NAME。"
+        else
+        # TTS_DEVICE_NAME 只在明确指定时作为最高优先级；旧扫描模式默认自动选择稳定出现的外接声卡。
         # TTS 实际播放使用 sounddevice，因此启动前也必须用 sounddevice 同源扫描设备。
         # 默认允许 Orin/HDMI/APE 内置设备回退，优先保证 TTS 服务可启动；如需强制外接声卡，可显式设为 0。
         DEVICE_NAME="${TTS_DEVICE_NAME:-}"
@@ -350,6 +357,7 @@ fi
             echo "当前已默认允许内置声卡回退；如需强制外接声卡，请设置 RABBITBOT_TTS_ALLOW_BUILTIN=0。"
             echo "sounddevice 扫描日志: /tmp/rabbitbot_tts_sounddevice.err"
             exit 1
+        fi
         fi
         ;;
 esac

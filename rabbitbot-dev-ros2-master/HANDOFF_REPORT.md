@@ -53,6 +53,10 @@ RabbitBot 是面向人形机器人导览、问答、导航和动作控制的 Pyt
 
 ## 本轮修改
 
+- 本轮追加修改：local TTS 默认改为使用系统默认音频输出，不再默认扫描 BT67 或绑定 sounddevice index。
+- `scripts/start_tts_app.bash` 在 local 后端下默认设置 `RABBITBOT_TTS_USE_SYSTEM_DEFAULT=1` 且清空 `OUTPUT_DEVICE_INDEX`，由系统默认输出设备播放。
+- `rabbitbot/audio/run_tts_espnet.py` 在未传指定设备 index 且 `RABBITBOT_TTS_USE_SYSTEM_DEFAULT=1` 时，通过 `sd.query_devices(None, 'output')` 和 `sd.OutputStream(device=None, ...)` 打开系统默认输出。
+- 如需恢复旧的按设备名/index 扫描逻辑，可设置 `RABBITBOT_TTS_USE_SYSTEM_DEFAULT=0`，再配置 `TTS_DEVICE_NAME` 等旧变量。
 - 控制台前端已同步为 `/Users/firmiana/Desktop/rabbitbot-dev-ros2-master` 参考项目风格：左侧导航、顶部状态条、任务控制科技风大屏、机器人展示图、机器人状态页、点位台词页和模型服务页。
 - 新增静态资源挂载 `/static/control_console`，页面使用 `rabbitbot/control_console/static/unitree-g1-dashboard.png`。
 - 同步参考项目点位台词热更新与嘉宾称呼功能，新增 `/api/dialogue/hot-rows`、`/api/dialogue/leader-calling`，支持从当前定位位姿回填坐标。
@@ -69,6 +73,8 @@ RabbitBot 是面向人形机器人导览、问答、导航和动作控制的 Pyt
 
 ## 已验证事实
 
+- 已执行 `python3 -m py_compile rabbitbot/audio/run_tts_espnet.py tts_app.py`，语法检查通过。
+- 已执行 `bash -n scripts/start_tts_app.bash`，脚本语法检查通过。
 - 已执行 `python3 -m py_compile rabbitbot/control_console/app.py rabbitbot/control_console/dialogue.py rabbitbot/control_console/commands.py rabbitbot/control_console/status.py rabbitbot/control_console/config.py tests/control_console/test_app.py tests/control_console/test_commands.py tests/control_console/test_status.py`，语法检查通过。
 - 当前系统 Python 缺少 `pytest` 和 `fastapi`，无法在本机用当前解释器运行控制台 pytest 或 FastAPI TestClient。
 - 已确认本项目控制台前端是 FastAPI 内嵌 HTML/CSS/原生 JavaScript，不是独立 Node/Vite 项目。
@@ -90,6 +96,8 @@ RabbitBot 是面向人形机器人导览、问答、导航和动作控制的 Pyt
 
 ## 注意事项
 
+- 系统默认音频由宿主或容器内 ALSA/PulseAudio/PipeWire 默认输出决定；如果默认输出设错，TTS 会播到系统当前默认设备。
+- Docker 场景仍需保证容器能访问系统音频设备或音频服务，否则系统默认输出打开会失败并记录异常。
 - 不要提交真实 `runtime/portable.env`、日志、大模型缓存或密钥类配置。
 - `/api/service/restart` 会重启服务所在 Docker 容器；TTS/STT 同容器时会一并受影响。
 - 点位台词保存会备份原 JSON，日志只记录路径、行数、点位 key 和错误类型，不记录完整台词或大段 JSON。
