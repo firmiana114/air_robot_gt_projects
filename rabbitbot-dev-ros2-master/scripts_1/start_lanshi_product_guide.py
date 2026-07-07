@@ -52,7 +52,7 @@ INTRO_SENTENCES = [
     "绿色低碳智慧化校园管理服务平台让科技更懂人心，让数据更有温度。",
 ]
 
-DEFAULT_ACTIONS = ["face_wave", "right_hand_up", "", "right_hand_up", "high_wave"]
+DEFAULT_ACTIONS = ["face_wave", "right_hand_up", "", "right_hand_up", "双手平摊开掌心向上"]
 DEFAULT_TARGET_ROUND_SECONDS = 315.0
 DEFAULT_ESTIMATED_CHARS_PER_SECOND = 5.0
 DEFAULT_ESTIMATED_SENTENCE_OVERHEAD_SECONDS = 0.8
